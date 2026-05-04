@@ -1,0 +1,9 @@
+fastapi
+uvicorn
+yt-dlp
+python-multipart
+pydantic
+instaloader
+psutil
+slowapi==0.1.9
+limits==3.7.0
