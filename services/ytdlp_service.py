@@ -7,6 +7,12 @@ from typing import Dict, Any, List, Optional
 from fastapi import HTTPException
 from datetime import datetime
 
+# Setup logging
+logger = logging.getLogger(__name__)
+
+# Constants
+DESKTOP_UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+
 from models.schemas import (
     StreamOption, 
     ExtractResponse, 
@@ -76,6 +82,24 @@ def get_ydl_opts(url: str, skip_download: bool = True) -> dict:
         'nocheckcertificate': True,
         'restrictfilenames': True,
     }
+
+    # Advanced JS and Remote Components (Fix for YouTube n-challenge)
+    # Detect Node.exe for Windows or use 'node' for Linux/Mac
+    node_executable = 'node'
+    if os.name == 'nt' and os.path.exists(r'C:\Program Files\nodejs\node.exe'):
+        node_executable = r'C:\Program Files\nodejs\node.exe'
+        os.environ['PATH'] = r'C:\Program Files\nodejs' + os.pathsep + os.environ.get('PATH', '')
+
+    opts['js_runtimes'] = {'node': {'executable': node_executable}}
+    opts['remote_components'] = {'ejs:github'}
+
+    # Unified Cookie Handling
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    cookie_path = os.path.join(project_root, "cookies", f"{source}_cookies.txt")
+    
+    if os.path.exists(cookie_path):
+        opts['cookiefile'] = cookie_path
+        logger.info(f"Using cookies for {source} from {cookie_path}")
     
     if source == "instagram":
         opts['http_headers'] = {"User-Agent": MOBILE_UA}
@@ -84,17 +108,20 @@ def get_ydl_opts(url: str, skip_download: bool = True) -> dict:
             "User-Agent": DESKTOP_UA,
             "Referer": "https://www.tiktok.com/"
         }
-        # Use provided tiktok cookies if they exist
-        project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        tiktok_cookies = os.path.join(project_root, "tiktok_cookies.txt")
-        if os.path.exists(tiktok_cookies):
-            opts['cookiefile'] = tiktok_cookies
-    elif source == "facebook":
-        cookie_path = "./cookies/facebook.txt"
-        if os.path.exists(cookie_path):
-            opts['cookiefile'] = cookie_path
     elif source == "youtube":
-        opts['extractor_args'] = {"youtube": {"skip": ["hls", "dash"]}}
+        opts['http_headers'] = {
+            "User-Agent": DESKTOP_UA,
+            "Referer": "https://www.youtube.com/",
+            "Accept-Language": "en-US,en;q=0.9",
+        }
+        opts['extractor_args'] = {
+            'youtube': {
+                'player_client': ['default'],
+            }
+        }
+        # Force high-quality manifests
+        opts['youtube_include_dash_manifest'] = True
+        opts['youtube_include_hls_manifest'] = True
     
     return opts
 
@@ -159,6 +186,13 @@ def normalize_streams(info: dict) -> list[StreamOption]:
         # 2. Skip storyboard format_ids
         format_id = str(fmt.get('format_id', ''))
         if any(x in format_id for x in ["storyboard", "sb0", "sb1", "sb2"]):
+            continue
+            
+        # 2b. Skip ultra-low resolution video variants (< 144p)
+        # These come from DASH manifests and are not useful for users
+        height = fmt.get('height')
+        vcodec = fmt.get('vcodec')
+        if height and vcodec and vcodec != 'none' and height < 144:
             continue
             
         # 3. Determine StreamType

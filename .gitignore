@@ -6,5 +6,6 @@ venv/
 ENV/
 env/
 dl_jobs/
-tiktok_cookies.txt
+cookies/
+configs/
 *.log
