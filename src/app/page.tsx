@@ -11,6 +11,7 @@ import {
   FacebookIcon,
   RedditIcon
 } from "@/components/SocialIcons";
+import { getFileUrl } from "@/lib/api";
 
 // Helper functions
 const formatBytes = (bytes: number | null) => {
@@ -45,9 +46,11 @@ export default function Home() {
     progress,
     error,
     selectedStream,
+    jobId,
     extract,
     startDownload,
     reset,
+    dismissDownload,
   } = useDownload();
 
   const [imgError, setImgError] = useState(false);
@@ -206,36 +209,70 @@ export default function Home() {
         )}
       </section>
 
-      {/* Loading & Progress State Overlay */}
-      {(stage === "extracting" || stage === "downloading") && (
+      {/* Loading & Progress & Success State Overlay */}
+      {(stage === "extracting" || stage === "downloading" || stage === "completed") && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 bg-black/60 backdrop-blur-md animate-fade-in">
           <section className="w-full max-w-2xl flex flex-col gap-4 animate-slide-up">
-            <div className="font-label-caps text-label-caps text-secondary flex items-center gap-2">
-              <span className="material-symbols-outlined text-[16px] animate-spin">sync</span>
+            <div className={`font-label-caps text-label-caps flex items-center gap-2 ${stage === "completed" ? "text-primary" : "text-secondary"}`}>
+              <span className={`material-symbols-outlined text-[16px] ${stage === "completed" ? "" : "animate-spin"}`}>
+                {stage === "completed" ? "check_circle" : "sync"}
+              </span>
               <span className="blinking-cursor">
-                {stage === "extracting" ? "EXTRACTING_METADATA" : "DOWNLOAD_IN_PROGRESS"} // PLEASE_WAIT
+                {stage === "extracting" ? "EXTRACTING_METADATA" : stage === "downloading" ? "DOWNLOAD_IN_PROGRESS" : "DOWNLOAD_READY"} // {stage === "completed" ? "SUCCESS" : "PLEASE_WAIT"}
               </span>
             </div>
             <div className="border border-outline-variant bg-surface-container-lowest p-8 md:p-12 flex flex-col items-center justify-center gap-6 shadow-[0_0_100px_-20px_rgba(0,0,0,0.8)]">
-              <span className="material-symbols-outlined text-5xl text-secondary animate-spin">
-                {stage === "extracting" ? "settings" : "downloading"}
-              </span>
-              <div className="flex flex-col items-center gap-2 text-center">
-                <p className="font-code-sm text-secondary uppercase tracking-widest">
-                  {stage === "extracting" ? "QUERYING_REMOTE_SERVER..." : `SYNCING_PACKETS... ${Math.round(progress)}%`}
-                </p>
-                {stage === "downloading" && (
-                  <span className="text-[10px] text-on-surface-variant font-code-sm opacity-60">
-                    DO NOT CLOSE TERMINAL // SESSION_ACTIVE
+              {stage === "completed" ? (
+                <div className="flex flex-col items-center gap-6 animate-fade-in w-full">
+                  <span className="material-symbols-outlined text-7xl text-primary animate-pulse">task_alt</span>
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <h3 className="font-headline-sm text-primary uppercase tracking-widest">TRANSMISSION_COMPLETE</h3>
+                    <p className="text-xs text-on-surface-variant font-code-sm opacity-60 max-w-xs">
+                      The media package has been prepared. If your browser did not initiate the download automatically, use the manual link below.
+                    </p>
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row gap-3 w-full max-w-sm mt-4">
+                    <a
+                      href={jobId ? getFileUrl(jobId) : "#"}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 border border-primary bg-primary text-surface py-3 font-label-caps text-center hover:bg-transparent hover:text-primary transition-all duration-200 flex items-center justify-center gap-2 group shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-1 hover:translate-y-1"
+                    >
+                      <span className="material-symbols-outlined text-[18px]">download</span>
+                      MANUAL_DOWNLOAD
+                    </a>
+                    <button
+                      onClick={dismissDownload}
+                      className="flex-1 border border-outline-variant bg-surface py-3 font-label-caps text-center hover:bg-surface-container transition-all duration-200 shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:shadow-none hover:translate-x-1 hover:translate-y-1 cursor-pointer"
+                    >
+                      CLOSE_TERMINAL
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <span className="material-symbols-outlined text-5xl text-secondary animate-spin">
+                    {stage === "extracting" ? "settings" : "downloading"}
                   </span>
-                )}
-              </div>
-              <div className="w-full max-w-md h-1 bg-surface-container overflow-hidden">
-                <div
-                  className={`h-full bg-primary transition-all duration-300 ${stage === "extracting" ? "w-1/3 animate-[pulse_1s_ease-in-out_infinite]" : ""}`}
-                  style={stage === "downloading" ? { width: `${progress}%` } : {}}
-                ></div>
-              </div>
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <p className="font-code-sm text-secondary uppercase tracking-widest">
+                      {stage === "extracting" ? "QUERYING_REMOTE_SERVER..." : `SYNCING_PACKETS... ${Math.round(progress)}%`}
+                    </p>
+                    {stage === "downloading" && (
+                      <span className="text-[10px] text-on-surface-variant font-code-sm opacity-60">
+                        DO NOT CLOSE TERMINAL // SESSION_ACTIVE
+                      </span>
+                    )}
+                  </div>
+                  <div className="w-full max-w-md h-1 bg-surface-container overflow-hidden">
+                    <div
+                      className={`h-full bg-primary transition-all duration-300 ${stage === "extracting" ? "w-1/3 animate-[pulse_1s_ease-in-out_infinite]" : ""}`}
+                      style={stage === "downloading" ? { width: `${progress}%` } : {}}
+                    ></div>
+                  </div>
+                </>
+              )}
             </div>
           </section>
         </div>

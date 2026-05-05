@@ -1,6 +1,6 @@
 import { ExtractResponse, JobStatusResponse } from "@/types";
 
-const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "https://luath-api.isntlang.my.id";
 
 export class ApiError extends Error {
   constructor(

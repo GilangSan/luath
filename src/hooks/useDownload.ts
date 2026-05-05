@@ -48,6 +48,14 @@ export function useDownload() {
     setCurrentUrl("");
   }, [clearPolling]);
 
+  const dismissDownload = useCallback(() => {
+    clearPolling();
+    setStage("extracted");
+    setJobId(null);
+    setProgress(0);
+    setError(null);
+  }, [clearPolling]);
+
   const extract = async (url: string) => {
     reset();
     setStage("extracting");
@@ -111,7 +119,18 @@ export function useDownload() {
             addHistory(historyItem);
 
             // Trigger browser download
-            window.open(getFileUrl(job_id), "_blank");
+            const downloadUrl = getFileUrl(job_id);
+            
+            // Create a hidden anchor element to trigger download
+            const link = document.createElement("a");
+            link.href = downloadUrl;
+            // Use the filename from server if available
+            if (statusData.filename) {
+              link.setAttribute("download", statusData.filename);
+            }
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
             
             setStage("completed");
           } else if (statusData.status === "failed") {
@@ -146,5 +165,6 @@ export function useDownload() {
     extract,
     startDownload,
     reset,
+    dismissDownload,
   };
 }
